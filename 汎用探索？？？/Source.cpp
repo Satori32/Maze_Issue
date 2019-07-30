@@ -42,7 +42,7 @@ bool Search(Map& M,std::intmax_t X,std::intmax_t Y, Fun F,RE& Random) {
 	std::vector<std::int8_t> YM{ 1,0,-1,0 };
 	VecStack St;
 
-	if (!F(M, 0, 0, 0, 0,St)) {
+	if (!F(M, 0, 0, 0, 0)) {
 		return false;
 	}
 
@@ -54,12 +54,13 @@ bool Search(Map& M,std::intmax_t X,std::intmax_t Y, Fun F,RE& Random) {
 		for (i; i < DIdx.size(); i++) {
 			std::intmax_t NX = X + XM[Dir[i]];
 			std::intmax_t NY = Y + YM[Dir[i]];
-			if (F(M, X, Y, NX, NY,St)) {
-				St.push_back({X,Y,Dir,i});
+			if (F(M, X, Y, NX, NY)) {
 				auto It = std::find_if(St.begin(), St.end(), [&](auto& A) { return std::get<0>(A) == NX && std::get<1>(A) == NY;});
 				if (It == St.end()) {
+					St.push_back({X,Y,Dir,i+1});
 					std::shuffle(Dir.begin(), Dir.end(), Random);
 					St.push_back({ NX,NY,Dir,0 }); 
+					//i = 0;
 				}
 			}
 		}
@@ -101,7 +102,7 @@ Maze MakeHoge() {
 	std::intmax_t LY = 7;
 	Maze M =CreateField(LX+1,LY+1);
 
-	auto F = [&](Maze& M, const std::intmax_t& FX, const std::intmax_t FY, const std::intmax_t& NX, const std::intmax_t& NY, const VecStack& ST) {
+	auto F = [&](Maze& M, const std::intmax_t& FX, const std::intmax_t FY, const std::intmax_t& NX, const std::intmax_t& NY) {
 		if (FX == LX&&FY==LY)return false;
 		if (FX < 0) return false;
 		if (FY < 0)return false;
@@ -139,7 +140,7 @@ Maze MakeHoge() {
 
 	};
 
-	std::minstd_rand mr(0);
+	std::minstd_rand mr(1);
 	Search(M, 0, 0, F,mr);
 
 	Show(M);
@@ -157,6 +158,7 @@ Maze MakeHoge() {
 	/*`*/
 	return M;
 }
+/**/
 int main() {
 
 	Maze M = MakeHoge();
@@ -167,10 +169,10 @@ int main() {
 int main() {
 
 	Maze M = MakeHoge();
-	Show(M);
+	//Show(M);
 	std::intmax_t LX = 7;
 	std::intmax_t LY = 7;
-	auto F = [&](Maze& M, const std::intmax_t& FX, const std::intmax_t FY, const std::intmax_t& NX, const std::intmax_t& NY, const VecStack& ST) {
+	auto F = [&](Maze& M, const std::intmax_t& FX, const std::intmax_t FY, const std::intmax_t& NX, const std::intmax_t& NY) {
 
 		if (FX == NX && FY == NY) return true;
 
@@ -195,17 +197,17 @@ int main() {
 		M[FY][FX].Make(1 << 5);
 		
 		if (DX == 1) {
-			if (M[FY][FX].Value() & Tyle::Right) return true;
+			if ((M[FY][FX].Value() & Tyle::Right)>0) return true;
 		}
 		if (DX == -1) {	
-			if (M[FY][FX].Value() & Tyle::Left) return true;
+			if ((M[FY][FX].Value() & Tyle::Left)>0) return true;
 		}
 		if (DY == 1) {	
-			if (M[FY][FX].Value() & Tyle::Top) return true;
+			if ((M[FY][FX].Value() & Tyle::Top)>0) return true;
 
 		}
 		if (DY == -1) {
-			if (M[FY][FX].Value() & Tyle::Bottom) return true;
+			if ((M[FY][FX].Value() & Tyle::Bottom)>0) return true;
 		}
 
 
@@ -221,7 +223,7 @@ int main() {
 
 	return 0;
 }
-**/
+/**/
 /** /
 int main() {
 
