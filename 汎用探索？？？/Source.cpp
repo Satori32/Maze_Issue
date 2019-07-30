@@ -41,8 +41,9 @@ bool Search(Map& M,std::intmax_t X,std::intmax_t Y, Fun F,RE& Random) {
 	std::vector<std::int8_t> XM{ 0,1,0,-1 };
 	std::vector<std::int8_t> YM{ 1,0,-1,0 };
 	VecStack St;
-
-	if (!F(M, 0, 0, 0, 0)) {
+	auto [CanMove, End] = F(M, 0, 0, 0, 0);
+	if (End == true) return true;
+	if (!CanMove) {
 		return false;
 	}
 
@@ -54,7 +55,9 @@ bool Search(Map& M,std::intmax_t X,std::intmax_t Y, Fun F,RE& Random) {
 		for (i; i < DIdx.size(); i++) {
 			std::intmax_t NX = X + XM[Dir[i]];
 			std::intmax_t NY = Y + YM[Dir[i]];
-			if (F(M, X, Y, NX, NY)) {
+			auto [CanMove, End] = F(M, X, Y, NX, NY);
+			if (End == true) return true;
+			if (CanMove) {
 				auto It = std::find_if(St.begin(), St.end(), [&](auto& A) { return std::get<0>(A) == NX && std::get<1>(A) == NY;});
 				if (It == St.end()) {
 					St.push_back({X,Y,Dir,i+1});
@@ -65,6 +68,7 @@ bool Search(Map& M,std::intmax_t X,std::intmax_t Y, Fun F,RE& Random) {
 			}
 		}
 	}
+	return true;
 }
 
 Maze CreateField(const std::intmax_t& W,const std::intmax_t& H) {
@@ -102,22 +106,22 @@ Maze MakeHoge() {
 	std::intmax_t LY = 7;
 	Maze M =CreateField(LX+1,LY+1);
 
-	auto F = [&](Maze& M, const std::intmax_t& FX, const std::intmax_t FY, const std::intmax_t& NX, const std::intmax_t& NY) {
-		if (FX == LX&&FY==LY)return false;
-		if (FX < 0) return false;
-		if (FY < 0)return false;
-		if (FX >= M.front().size()) return false;
-		if (FY >= M.size())return false;
-		if (NX < 0) return false;
-		if (NY < 0)return false;
-		if (NX >= M.front().size()) return false;
-		if (NY >= M.size())return false;
+	auto F = [&](Maze& M, const std::intmax_t& FX, const std::intmax_t FY, const std::intmax_t& NX, const std::intmax_t& NY)->std::tuple<bool,bool> {
+		if (FX == LX && FY == LY)return { false,false };
+		if (FX < 0)return { false,false };
+		if (FY < 0) return { false,false };
+		if (FX >= M.front().size())  return { false,false };
+		if (FY >= M.size())  return { false,false };
+		if (NX < 0)  return { false,false };
+		if (NY < 0) return { false,false };
+		if (NX >= M.front().size())return { false,false };
+		if (NY >= M.size())return { false,false };
 
 		std::int8_t DX = NX - FX;
 		std::int8_t DY = NY - FY;
 
-		if (!((std::abs(DX) == 1 && std::abs(DY) == 0) | (std::abs(DX) == 0 && std::abs(DY) == 1)|(std::abs(DX) == 0 && std::abs(DY) == 0))) { return false; }
-		if (M[NY][NX].Value() != Tyle::All) { return false; }
+		if (!((std::abs(DX) == 1 && std::abs(DY) == 0) | (std::abs(DX) == 0 && std::abs(DY) == 1)|(std::abs(DX) == 0 && std::abs(DY) == 0))) return { false,false };
+		if (M[NY][NX].Value() != Tyle::All) return { false,false };
 
 		if (DX == 1) {
 			M[FY][FX].Drop(Tyle::Right);
@@ -136,11 +140,10 @@ Maze MakeHoge() {
 			M[NY][NX].Drop(Tyle::Top);
 		}
 
-		return true;
-
+		return { true,false };
 	};
 
-	std::minstd_rand mr(1);
+	std::minstd_rand mr(0);
 	Search(M, 0, 0, F,mr);
 
 	Show(M);
@@ -158,65 +161,67 @@ Maze MakeHoge() {
 	/*`*/
 	return M;
 }
-/**/
+/** /
 int main() {
 
 	Maze M = MakeHoge();
 	//Show(M);
 	return 0;
 }
-/** /
+/**/
 int main() {
 
 	Maze M = MakeHoge();
 	//Show(M);
 	std::intmax_t LX = 7;
 	std::intmax_t LY = 7;
-	auto F = [&](Maze& M, const std::intmax_t& FX, const std::intmax_t FY, const std::intmax_t& NX, const std::intmax_t& NY) {
+	auto F = [&](Maze& M, const std::intmax_t& FX, const std::intmax_t FY, const std::intmax_t& NX, const std::intmax_t& NY)->std::tuple<bool,bool> {
 
-		if (FX == NX && FY == NY) return true;
+		if (FX == NX && FY == NY) return { true,false };
 
-		if (FX == LX && FY == LY)return false;
+		if (FX == LX && FY == LY) {
+			M[FY][FX].Make(1 << 5);		
+			return { true,true };
+		}
 
-		if (FX < 0) return false;
-		if (FY < 0)return false;
-		if (FX >= M.front().size()) return false;
-		if (FY >= M.size())return false;
-		if (NX < 0) return false;
-		if (NY < 0)return false;
-		if (NX >= M.front().size()) return false;
-		if (NY >= M.size())return false;
+		if (FX < 0)  return { false,false };
+		if (FY < 0)  return { false,false };
+		if (FX >= M.front().size())  return { false,false };
+		if (FY >= M.size())  return { false,false };
+		if (NX < 0)  return { false,false };
+		if (NY < 0)  return { false,false };
+		if (NX >= M.front().size())  return { false,false };
+		if (NY >= M.size()) return { false,false };
 
 
 		std::int8_t DX = NX - FX;
 		std::int8_t DY = NY - FY;
-
-		//if (!((std::abs(DX) == 1 && std::abs(DY) == 0) | (std::abs(DX) == 0 && std::abs(DY) == 1) | (std::abs(DX) == 0 && std::abs(DY) == 0))) { return false; }
-		//if (M[NY][NX].Value() == Tyle::All) { return false; }
 		
 		M[FY][FX].Make(1 << 5);
 		
 		if (DX == 1) {
-			if ((M[FY][FX].Value() & Tyle::Right)>0) return true;
+			if ((M[FY][FX].Value() & Tyle::Right)==0) return { true ,false }; 
 		}
 		if (DX == -1) {	
-			if ((M[FY][FX].Value() & Tyle::Left)>0) return true;
+			if ((M[FY][FX].Value() & Tyle::Left)==0)  return { true ,false }; 
 		}
+		
 		if (DY == 1) {	
-			if ((M[FY][FX].Value() & Tyle::Top)>0) return true;
+			if ((M[FY][FX].Value() & Tyle::Top)==0)  return { true ,false };
+
 
 		}
 		if (DY == -1) {
-			if ((M[FY][FX].Value() & Tyle::Bottom)>0) return true;
+			if ((M[FY][FX].Value() & Tyle::Bottom)==0)   return { true ,false };
 		}
 
 
 
-		return false;
+		return { false ,false };;
 
 	};
 
-	std::minstd_rand mr(0);
+	std::minstd_rand mr(1);
 	Search(M, 0, 0, F,mr);
 
 	Show(M);
