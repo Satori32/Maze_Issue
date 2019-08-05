@@ -64,55 +64,57 @@ static bool Show(const Maze& M) {
 	return true;
 }
 
-typedef std::tuple < std::intmax_t, std::intmax_t, std::vector<std::uint8_t>,std::uint8_t> Data;//x,y,dir,i.
-typedef std::vector<Data> VecStack;
+typedef std::tuple < std::intmax_t, std::intmax_t> Point;
+typedef std::tuple < Point, std::vector<std::uint8_t>, std::uint8_t> SData;
+typedef std::vector<SData> VStack;
 
-template<class Map, class Fun,class RE>
-std::tuple<bool,VecStack> Search(Map& M,std::intmax_t X,std::intmax_t Y, Fun F,RE& Random) {
-	std::vector<std::uint8_t> DIdx = { 0,1,2,3 };
-	std::vector<std::int8_t> XM{ 0,1,0,-1 };
-	std::vector<std::int8_t> YM{ 1,0,-1,0 };
-	VecStack St;
-	auto [CanMove, End] = F(M, 0, 0, 0, 0);
-	if (End == true) {
-		return { false ,St };
+template<class Stack,class Map, class Fun, class NFun, class EqualFun, class RE, class Di, class Cood >
+bool Search2(Map& M, Cood XY, Di Directions, Fun F, NFun Next, EqualFun IsEq, RE& Random) {
+	std::vector<std::uint8_t> DIdx;
+
+	for (std::size_t i = 0; i < Directions.size(); i++) {
+		DIdx.push_back(i);
 	}
+
+	Stack St;
+	auto [CanMove, End] = F(M, XY, XY);
+	if (End == true) return true;
 	if (!CanMove) {
-		return { false,St };
+		return false;
 	}
 
-	St.push_back({ X,Y,DIdx,0 });
+	St.push_back({ XY,DIdx,0 });
 
 	while (St.size()) {
-		auto [X,Y,Dir,i]=St.back();
+		auto [XY, Dir, i] = St.back();
 		St.pop_back();
 		for (i; i < DIdx.size(); i++) {
-			std::intmax_t NX = X + XM[Dir[i]];
-			std::intmax_t NY = Y + YM[Dir[i]];
-			auto [CanMove, End] = F(M, X, Y, NX, NY);
-			if (End == true) {
-				return { true,St };
-			}
+			auto Ne = Next(XY, Directions[Dir[i]]);
+			auto [CanMove, End] = F(M, XY, Ne);
+			if (End == true) return true;
 			if (CanMove) {
-				auto It = std::find_if(St.begin(), St.end(), [&](auto& A) { return std::get<0>(A) == NX && std::get<1>(A) == NY;});
+				auto It = std::find_if(St.begin(), St.end(), [&](auto& A)->bool { return IsEq(std::get<0>(A), Ne); });
 				if (It == St.end()) {
-					St.push_back({X,Y,Dir,i+1});
+					St.push_back({ XY,Dir,i + 1 });
 					std::shuffle(Dir.begin(), Dir.end(), Random);
-					St.push_back({ NX,NY,Dir,0 }); 
+					St.push_back({ Ne,Dir,0 });
 					//i = 0;
 				}
 			}
 		}
 	}
-	return { false,St };
+	return true;
 }
-
-Maze MakeHoge(std::intmax_t LX,std::intmax_t LY) {
-	//std::intmax_t LX = 7;
-	//std::intmax_t LY = 7;
-	Maze M =CreateField(LX,LY);
-
-	auto F = [&](Maze& M, const std::intmax_t& FX, const std::intmax_t FY, const std::intmax_t& NX, const std::intmax_t& NY)->std::tuple<bool,bool> {
+/** /
+int main() {
+	std::intmax_t LX = 7;
+	std::intmax_t LY = 7;
+	Maze M = CreateField(LX + 1, LY + 1);
+	auto F2 = [&](Maze& M, const Point& XY,const Point& NXY)->std::tuple<bool, bool> {
+		std::intmax_t FX = std::get<0>(XY);
+		std::intmax_t FY = std::get<1>(XY);		
+		std::intmax_t NX = std::get<0>(NXY);
+		std::intmax_t NY = std::get<1>(NXY);			
 		if (FX == LX && FY == LY)return { false,false };
 		if (FX < 0)return { false,false };
 		if (FY < 0) return { false,false };
@@ -126,7 +128,7 @@ Maze MakeHoge(std::intmax_t LX,std::intmax_t LY) {
 		std::int8_t DX = NX - FX;
 		std::int8_t DY = NY - FY;
 
-		if (!((std::abs(DX) == 1 && std::abs(DY) == 0) | (std::abs(DX) == 0 && std::abs(DY) == 1)|(std::abs(DX) == 0 && std::abs(DY) == 0))) return { false,false };
+		if (!((std::abs(DX) == 1 && std::abs(DY) == 0) | (std::abs(DX) == 0 && std::abs(DY) == 1) | (std::abs(DX) == 0 && std::abs(DY) == 0))) return { false,false };
 		if (M[NY][NX].Value() != Tyle::All) return { false,false };
 
 		if (DX == 1) {
@@ -148,34 +150,16 @@ Maze MakeHoge(std::intmax_t LX,std::intmax_t LY) {
 
 		return { true,false };
 	};
-
-	std::minstd_rand mr(0);
-	Search(M, 0, 0, F,mr);
-
-	Show(M);
-
-	return M;
-}
-/** /
-int main() {
-
-	Maze M = MakeHoge();
-	//Show(M);
-	return 0;
-}
-/**/
-int main() {
-	std::intmax_t LX = 25;
-	std::intmax_t LY = 7;
-	Maze M = MakeHoge(LX+1,LY+1);
-	//Show(M);
-
-	auto F = [&](Maze& M, const std::intmax_t& FX, const std::intmax_t FY, const std::intmax_t& NX, const std::intmax_t& NY)->std::tuple<bool,bool> {
+	auto F = [&](Maze& M,const Point& XY, const Point& NXY)->std::tuple<bool, bool> {
+		std::intmax_t FX = std::get<0>(XY);
+		std::intmax_t FY = std::get<1>(XY);
+		std::intmax_t NX = std::get<0>(NXY);
+		std::intmax_t NY = std::get<1>(NXY);
 
 		if (FX == NX && FY == NY) return { true,false };
 
 		if (FX == LX && FY == LY) {
-			M[FY][FX].Make(1 << 5);		
+			M[FY][FX].Make(1 << 5);
 			return { true,true };
 		}
 
@@ -191,23 +175,23 @@ int main() {
 
 		std::int8_t DX = NX - FX;
 		std::int8_t DY = NY - FY;
-		
+
 		M[FY][FX].Make(1 << 5);
-		
+
 		if (DX == 1) {
-			if ((M[FY][FX].Value() & Tyle::Right)==0) return { true ,false }; 
+			if ((M[FY][FX].Value() & Tyle::Right) == 0) return { true ,false };
 		}
-		if (DX == -1) {	
-			if ((M[FY][FX].Value() & Tyle::Left)==0)  return { true ,false }; 
+		if (DX == -1) {
+			if ((M[FY][FX].Value() & Tyle::Left) == 0)  return { true ,false };
 		}
-		
-		if (DY == 1) {	
-			if ((M[FY][FX].Value() & Tyle::Top)==0)  return { true ,false };
+
+		if (DY == 1) {
+			if ((M[FY][FX].Value() & Tyle::Top) == 0)  return { true ,false };
 
 
 		}
 		if (DY == -1) {
-			if ((M[FY][FX].Value() & Tyle::Bottom)==0)   return { true ,false };
+			if ((M[FY][FX].Value() & Tyle::Bottom) == 0)   return { true ,false };
 		}
 
 
@@ -215,25 +199,14 @@ int main() {
 		return { false ,false };;
 
 	};
-
+	auto NF = [](const Point& A, const Point& Dir)->Point {return { std::get<0>(A) + std::get<0>(Dir),std::get<1>(A) + std::get<1>(Dir) }; };
+	auto Eq = [](const Point& A, const Point& B)->bool { return (std::get<0>(A) == std::get<0>(B)) && (std::get<1>(A) == std::get<1>(B)); };
+	std::vector<Point> Dir = { {1,0},{0,1},{-1,0},{0,-1} };
+	Point FS = { 0,0 };
 	std::minstd_rand mr(1);
-	Search(M, 0, 0, F,mr);
+	Search2<VStack>(M, FS, Dir, F,NF,Eq, mr);
 
 	Show(M);
-
-	return 0;
-}
-/**/
-
-/** /
-int main() {
-
-	Tyle T;
-
-	T.Drop(Tyle::Up|Tyle::Bottom);
-
-
-
 
 	return 0;
 }
